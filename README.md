@@ -1,70 +1,145 @@
-# Getting Started with Create React App
+# API 연동하기
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+학습 목적
+---
+- axios를 사용해서 GET,PUT,POST,DELETE 등의 메서드로 API 요청 
+- useReducer를 이용해서 LOADING, SUCCESS, ERROR의 ACTION에 따라 다르게 처리
+- Context와 API의 연동하여 특정 데이터들은 필요할 때 처리
 
-## Available Scripts
+학습 중 어려운 점
+---
+- UserContext.js에 각 상황에 따른 상태, Reducer, Provider, axios를 이용한 데이터 가져오기 등 어떻게 하면 깔끔하게 리펙토링 할 수 있을지에 대한 고민을 많이 했다,
+```
+import React, { createContext, useReducer, useContext } from "react";
+import axios from "axios";
 
-In the project directory, you can run:
+// UsersContext 에서 사용 할 기본 상태
+const initialState = {
+  users: {
+    loading: false,
+    data: null,
+    error: null,
+  },
+  user: {
+    loading: false,
+    data: null,
+    error: null,
+  },
+};
 
-### `npm start`
+// 로딩중일 때 바뀔 상태 객체
+const loadingState = {
+  loading: true,
+  data: null,
+  error: null,
+};
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+// 성공했을 때의 상태 만들어주는 함수
+const success = (data) => ({
+  loading: false,
+  data,
+  error: null,
+});
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+// 실패했을 때의 상태 만들어주는 함수
+const error = (error) => ({
+  loading: false,
+  data: null,
+  error: error,
+});
 
-### `npm test`
+function usersReducer(state, action) {
+  // eslint-disable-next-line default-case
+  switch (action.type) {
+    case "GET_USERS":
+      return {
+        ...state,
+        users: loadingState,
+      };
+    case "GET_USERS_SUCCESS":
+      return {
+        ...state,
+        users: success(action.data),
+      };
+    case "GET_USERS_ERROR":
+      return {
+        ...state,
+        users: error(action.error),
+      };
+    case "GET_USER":
+      return {
+        ...state,
+        user: loadingState,
+      };
+    case "GET_USER_SUCCESS":
+      return {
+        ...state,
+        user: success(action.data),
+      };
+    case "GET_USER_ERROR":
+      return {
+        ...state,
+        user: error(action.error),
+      };
+    default:
+      throw new Error(`Unhanded action type: ${action.type}`);
+  }
+}
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+const UsersStateContext = createContext(null);
+const UsersDispatchContext = createContext(null);
 
-### `npm run build`
+export function UsersProvider({ children }) {
+  const [state, dispatch] = useReducer(usersReducer, initialState);
+  return (
+    <UsersStateContext.Provider value={state}>
+      <UsersDispatchContext.Provider value={dispatch}>
+        {children}
+      </UsersDispatchContext.Provider>
+    </UsersStateContext.Provider>
+  );
+}
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+// State 를 쉽게 조회 할 수 있게 해주는 커스텀 Hook
+export function useUsersState() {
+  const state = useContext(UsersStateContext);
+  if (!state) {
+    throw new Error("Cannot find UsersProvider");
+  }
+  return state;
+}
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+// Dispatch 를 쉽게 사용 할 수 있게 해주는 커스텀 Hook
+export function useUsersDispatch() {
+  const dispatch = useContext(UsersDispatchContext);
+  if (!dispatch) {
+    throw new Error("Cannot find UsersProvider");
+  }
+  return dispatch;
+}
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+export async function getUsers(dispatch) {
+  dispatch({ type: "GET_USERS" });
+  try {
+    const response = await axios.get(
+      "https://jsonplaceholder.typicode.com/users"
+    );
+    dispatch({ type: "GET_USERS_SUCCESS", data: response.data });
+  } catch (e) {
+    dispatch({ type: "GET_USERS_ERROR", error: e });
+  }
+}
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+export async function getUser(dispatch, id) {
+  dispatch({ type: "GET_USER" });
+  try {
+    const response = await axios.get(
+      `https://jsonplaceholder.typicode.com/users/${id}`
+    );
+    dispatch({ type: "GET_USER_SUCCESS", data: response.data });
+  } catch (e) {
+    dispatch({ type: "GET_USER_ERROR", error: e });
+  }
+}
+```
+이 또한 각 파일로 나눠서 리펙토링 해볼 예정이다.
